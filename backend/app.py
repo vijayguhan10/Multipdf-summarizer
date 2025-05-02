@@ -254,4 +254,4 @@ def extract_text_from_pdf(pdf_file_path: str) -> str:
 # Main function to run the app (for testing purposes or custom server startup)
 if __name__ == "__main__":
     import uvicorn
-uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
