@@ -32,8 +32,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# Get the current script directory and create uploads path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(CURRENT_DIR, "uploads")
+
 # Create an 'uploads' directory if it doesn't exist
-UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # AWS Textract client setup with error handling
@@ -137,6 +140,7 @@ def extract_text_with_pypdf2(pdf_file_path: str) -> str:
 # Route to handle single file upload
 @app.post("/upload")
 async def upload_file(file: List[UploadFile] = File(description="The file(s) to upload")):
+    file_path = None
     try:
         if not file or len(file) == 0:
             return JSONResponse(
@@ -161,11 +165,30 @@ async def upload_file(file: List[UploadFile] = File(description="The file(s) to 
                 content={"error": f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}"}
             )
 
-        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        # Create secure file path
+        safe_filename = os.path.basename(file.filename)
+        file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+        
+        # Ensure the file path is within the upload directory (security check)
+        if not file_path.startswith(UPLOAD_FOLDER):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Invalid file path"}
+            )
 
         # Save the uploaded file to the 'uploads' directory
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            # Set file permissions
+            
+            print(f"✅ File saved to: {file_path}")
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to save file: {str(e)}"}
+            )
         
         # Process based on file type
         if file_extension == '.txt':
@@ -189,7 +212,16 @@ async def upload_file(file: List[UploadFile] = File(description="The file(s) to 
         # Get summary of the extracted text
         result = get_summary_from_extracted_text(extracted_text)
         
-        print(f"Extracted text: {extracted_text}")
+        print(f"Extracted text: {extracted_text[:200]}...")  # Only show first 200 chars in log
+        
+        # Clean up: remove the uploaded file after processing
+        try:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✅ Cleaned up file: {file_path}")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not clean up file {file_path}: {str(e)}")
+        
         return JSONResponse(
             status_code=200,
             content={
@@ -200,6 +232,15 @@ async def upload_file(file: List[UploadFile] = File(description="The file(s) to 
 
     except Exception as e:
         print(f"Error: {str(e)}")
+        
+        # Clean up file in case of error
+        try:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✅ Cleaned up file after error: {file_path}")
+        except Exception as cleanup_e:
+            print(f"⚠️  Warning: Could not clean up file after error: {str(cleanup_e)}")
+        
         return JSONResponse(
             status_code=500,
             content={"error": f"An unexpected error occurred: {str(e)}"}
