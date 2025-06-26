@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -48,9 +49,6 @@ def summarize_text(text, max_words=1000):
             return fallback_response.text.strip()
         except Exception as fallback_e:
             return f"Error during summarization: {str(fallback_e)}"
-
-import json
-import re
 
 def clean_model_json_output(text):
     """
@@ -180,28 +178,6 @@ Here are the document contents:
         except Exception as fallback_e:
             return {"error": f"Error during multi-document summarization: {str(fallback_e)}"}
 
-def get_summary_from_extracted_text(extracted_text, file_names=None, is_multiple=False):
-    """
-    Takes extracted text from OCR and returns a summary.
-
-    Args:
-        extracted_text (str): Text extracted from document using OCR
-        file_names (list): List of document file names (for multiple documents)
-        is_multiple (bool): Flag to indicate if this is a multi-document summary
-
-    Returns:
-        dict: Contains the structured summary
-    """
-    filtered_text = filter_terms_and_conditions(extracted_text)
-
-    if is_multiple or (file_names and len(file_names) > 1):
-        summary = summarize_multiple_documents(filtered_text, file_names)
-    else:
-        summary = summarize_multiple_documents(filtered_text)  # Use the same JSON structure for single doc
-
-    return summary
-
-# Function to integrate with the main app
 def filter_terms_and_conditions(text):
     """
     Filters out terms and conditions sections from the text.
@@ -251,7 +227,6 @@ def filter_terms_and_conditions(text):
     text = re.sub(r'\[image\].*?(?=\n\n)', '', text, flags=re.DOTALL)
     return text.strip()
 
-
 def get_summary_from_extracted_text(extracted_text, file_names=None, is_multiple=False):
     """
     Takes extracted text from OCR and returns a summary.
@@ -262,13 +237,14 @@ def get_summary_from_extracted_text(extracted_text, file_names=None, is_multiple
         is_multiple (bool): Flag to indicate if this is a multi-document summary
     
     Returns:
-        dict: Contains both original text and summary
+        dict: Contains the structured summary
     """
     filtered_text = filter_terms_and_conditions(extracted_text)
     
     if is_multiple or (file_names and len(file_names) > 1):
         summary = summarize_multiple_documents(filtered_text, file_names)
     else:
-        summary = summarize_text(filtered_text)
+        # For single documents, still use the structured JSON format
+        summary = summarize_multiple_documents(filtered_text, file_names)
         
     return {"summary": summary}
