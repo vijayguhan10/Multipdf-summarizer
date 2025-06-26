@@ -18,6 +18,9 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI()
 
+MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500MB
+app.add_middleware(LimitUploadSizeMiddleware, max_upload_size=MAX_UPLOAD_SIZE)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
