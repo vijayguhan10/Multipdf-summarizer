@@ -174,8 +174,6 @@ async def upload_multiple_files(file: List[UploadFile] = File(..., description="
         return JSONResponse(
             status_code=200,
             content={
-                "message": f"Successfully processed {len(file)} files",
-                "individual_extractions": individual_extractions,
                 "summary": result["summary"]
             }
         )
